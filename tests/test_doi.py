@@ -1,11 +1,39 @@
 import os
 
+from urllib.request import Request, urlopen
+from urllib.parse import urlparse, urlunparse
+from warnings import warn
+
 import pytest
 
 from doi import (
     validate_doi, find_doi_in_text, pdf_to_doi,
     get_real_url_from_doi
 )
+
+
+def simplify_url(u):
+    return urlparse(u)._replace(query='', fragment='')
+
+
+def resolve_redirects(u):
+    # Unconditionally upgrade to https, since some resolvers seem to require it
+    # If removed, it'd make sense to canonicalize in simplify_url instead to
+    # prevent spurious test failures
+    u = urlunparse(urlparse(u)._replace(scheme='https'))
+    req = Request(u, headers={'User-Agent': 'Mozilla/5.0'})
+    with urlopen(req) as r:
+        return simplify_url(r.url)
+
+
+def normalize_eq(u, v):
+    if u == v:
+        return True
+    warn(f"{u} textually differs from {v}, please update the relevant case.\n"
+        "Attempting to recover by resolving redirects")
+    return (simplify_url(u) == simplify_url(v)
+            or resolve_redirects(u) == resolve_redirects(v)
+            )
 
 
 @pytest.mark.net
@@ -25,7 +53,7 @@ def test_validate_doi() -> None:
          "https://linkinghub.elsevier.com/retrieve/pii/S0009261497040141"),
     ]
     for doi, url in data:
-        assert url == validate_doi(doi)
+        assert normalize_eq(url, validate_doi(doi))
 
     for doi in ["", "asdf"]:
         try:
@@ -42,7 +70,7 @@ def test_get_real_url_from_doi() -> None:
          "article/abs/pii/S0009261497040141"),
     ]
     for doi, url in data:
-        assert url == get_real_url_from_doi(doi)
+        assert normalize_eq(url, get_real_url_from_doi(doi))
 
 
 def test_find_doi_in_line() -> None:
