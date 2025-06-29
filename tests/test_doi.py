@@ -67,8 +67,9 @@ def test_redirect(needs_cloudscraper, urls) -> None:
 
 
 @pytest.mark.net
-def test_validate_doi() -> None:
-    data = [
+@pytest.mark.parametrize(
+    "doi,url",
+    [
         ("10.1063/1.5081715",
          "https://pubs.aip.org/jcp/article/150/7/074102/197572/Exact-two-component-equation-of-motion-coupled"),  # noqa: E501
         ("10.1007%2FBF01451751",
@@ -82,29 +83,41 @@ def test_validate_doi() -> None:
         ("10.1016/S0009-2614(97)04014-1",
          "https://linkinghub.elsevier.com/retrieve/pii/S0009261497040141"),
     ]
-    for doi, url in data:
-        assert normalize_eq(url, validate_doi(doi))
+)
+def test_validate_doi(doi, url) -> None:
+    assert normalize_eq(url, validate_doi(doi))
 
-    for doi in ["", "asdf"]:
-        try:
-            validate_doi(doi)
-        except ValueError as e:
-            assert str(e) == "HTTP 404: DOI not found"
+
+@pytest.mark.parametrize(
+    "doi",
+    [
+        "",
+        "asdf"
+    ]
+)
+def test_validate_invalid_doi(doi) -> None:
+    try:
+        validate_doi(doi)
+    except ValueError as e:
+        assert str(e) == "HTTP 404: DOI not found"
 
 
 @pytest.mark.net
-def test_get_real_url_from_doi() -> None:
-    data = [
+@pytest.mark.parametrize(
+    "doi,url",
+    [
         ("10.1016/S0009-2614(97)04014-1",
          "https://www.sciencedirect.com/science/"
          "article/abs/pii/S0009261497040141"),
     ]
-    for doi, url in data:
-        assert normalize_eq(url, get_real_url_from_doi(doi))
+)
+def test_get_real_url_from_doi(doi, url) -> None:
+    assert normalize_eq(url, get_real_url_from_doi(doi))
 
 
-def test_find_doi_in_line() -> None:
-    test_data = [
+@pytest.mark.parametrize(
+    "url, doi",
+    [
         ("http://dx.doi.org/10.1063/1.881498", "10.1063/1.881498"),
         ("http://dx.doi.org/10.1063%2F1.881498", "10.1063/1.881498"),
         (2 * "qer " + "var doi = '12345/12345.3'", "12345/12345.3"),
@@ -133,8 +146,9 @@ def test_find_doi_in_line() -> None:
          "10.1016/j.comptc.2018.10.004"),
         ("doi(10.1038/s41535-018-0103-6;)", "10.1038/s41535-018-0103-6"),
     ]
-    for url, doi in test_data:
-        assert find_doi_in_text(url) == doi
+)
+def test_find_doi_in_line(url, doi) -> None:
+    assert find_doi_in_text(url) == doi
 
 
 def test_doi_from_pdf() -> None:
