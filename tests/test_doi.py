@@ -47,9 +47,15 @@ def normalize_eq(u, v, expect_diff=False):
             )
 
 
+def listmin(param):
+    if isinstance(param, list):
+        return min(param)
+    return ""
+
+
 @pytest.mark.net
 @pytest.mark.parametrize(
-    "needs_cloudscraper, urls",
+    "needs_cloudscraper, urls", ids=listmin, argvalues=
     [
         (True,
          ["http://pubs.aip.org/aip/jcp/article/150/7/074102/197572/Exact-two-component-equation-of-motion-coupled",  # noqa: E501
