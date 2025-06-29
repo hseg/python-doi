@@ -48,6 +48,11 @@ docs = [
     "sphinx>=4",
     "sphinx_rtd_theme>=1",
 ]
+# For solving client-side challenges on DDoS-protected sites
+# (eg those using CloudFlare)
+challenges = [
+    "cloudscraper",
+]
 
 [project.urls]
 Repository = "https://github.com/papis/python-doi"

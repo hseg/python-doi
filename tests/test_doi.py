@@ -1,6 +1,10 @@
 import os
 
-from urllib.request import Request, urlopen
+import requests
+try:
+    import cloudscraper
+except ImportError:
+    cloudscraper = None
 from urllib.parse import urlparse, urlunparse
 from warnings import warn
 
@@ -21,19 +25,45 @@ def resolve_redirects(u):
     # If removed, it'd make sense to canonicalize in simplify_url instead to
     # prevent spurious test failures
     u = urlunparse(urlparse(u)._replace(scheme='https'))
-    req = Request(u, headers={'User-Agent': 'Mozilla/5.0'})
-    with urlopen(req) as r:
-        return simplify_url(r.url)
+
+    if cloudscraper:
+        scraper = cloudscraper.create_scraper()
+        return simplify_url(scraper.get(u).url)
+
+    # Try emulating a browser to not get blocked
+    h = {'User-Agent': 'Mozilla/5.0'}
+    resp = requests.get(u, headers=h)
+    return simplify_url(resp.url)
 
 
-def normalize_eq(u, v):
+def normalize_eq(u, v, expect_diff=False):
     if u == v:
         return True
-    warn(f"{u} textually differs from {v}, please update the relevant case.\n"
-        "Attempting to recover by resolving redirects")
+    if not expect_diff:
+        warn(f"{u} textually differs from {v}, please update the relevant case.\n"
+             "Attempting to recover by resolving redirects")
     return (simplify_url(u) == simplify_url(v)
             or resolve_redirects(u) == resolve_redirects(v)
             )
+
+
+@pytest.mark.net
+@pytest.mark.parametrize(
+    "needs_cloudscraper, urls",
+    [
+        (True,
+         ["http://pubs.aip.org/aip/jcp/article/150/7/074102/197572/Exact-two-component-equation-of-motion-coupled",  # noqa: E501
+          "http://pubs.aip.org/jcp/article/150/7/074102/197572/Exact-two-component-equation-of-motion-coupled",  # noqa: E501
+          "http://aip.scitation.org/doi/10.1063/1.5081715"
+         ]),
+     ]
+)
+def test_redirect(needs_cloudscraper, urls) -> None:
+    base = urls[0]
+    if needs_cloudscraper and cloudscraper is None:
+        pytest.skip(f"cloudscraper needed to solve CloudFlare challenge on {base}")
+    for other in urls[1:]:
+        assert normalize_eq(base, other, expect_diff=True)
 
 
 @pytest.mark.net
